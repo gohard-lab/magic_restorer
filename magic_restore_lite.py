@@ -10,27 +10,13 @@ from tracker_exe import log_app_usage
 
 # 🚨 AI 라이브러리(torch, diffusers) 호출 코드를 완전히 삭제했습니다! (용량 다이어트 핵심)
 
-log_app_usage("magic_restorer", "restorer_started")
-
 class MagicRestorer:
     def __init__(self, root):
         self.root = root
         self.root.title("Magic Restore (Lite Ver.)")
         self.root.geometry("1200x850")
 
-        # ==========================================
-        # 0. Supabase 사용량 추적 초기화
-        # ==========================================
-        self.supabase_url = os.environ.get("SUPABASE_URL", "your_supabase_url_here")
-        self.supabase_key = os.environ.get("SUPABASE_KEY", "your_supabase_anon_key_here")
-        self.supabase: Client = None
-        
-        try:
-            if self.supabase_url.startswith("http"):
-                self.supabase = create_client(self.supabase_url, self.supabase_key)
-                self.track_usage("app_started")
-        except Exception as e:
-            print(f"Supabase 초기화 실패 (로컬 테스트 모드로 작동합니다): {e}")
+        log_app_usage("magic_restorer", "restorer_started")
 
         # ==========================================
         # 1. 초기 설정 변수
@@ -117,16 +103,6 @@ class MagicRestorer:
 
         self.load_image()
 
-    def track_usage(self, action_type):
-        """특정 동작을 Supabase에 기록합니다."""
-        if not self.supabase: return
-        def _send_data():
-            try:
-                self.supabase.table('usage_logs').insert({"action": action_type, "app_name": "Magic Restore Lite"}).execute()
-            except Exception as e:
-                print(f"통계 기록 실패: {e}")
-        threading.Thread(target=_send_data, daemon=True).start()
-
     def update_title(self):
         if self.cv_img is None: return
         zoom_pct = int(self.zoom_scale * 100)
@@ -179,7 +155,8 @@ class MagicRestorer:
         self.refresh_canvas()
         self.canvas.focus_set() 
         
-        self.track_usage("image_loaded")
+
+        log_app_usage("magic_restorer", "image_loaded")
         
         msg = "✅ 사진을 불러왔습니다!\n\n[조작법]\nM : 기능 변경 (NS/Telea/도장툴)\nZ, X : 붓 크기 조절\n스페이스바 : 복원 실행\n우클릭 : 도장툴 원본 지정\nShift+클릭 : 직선 긋기\nS : 이미지 저장"
         messagebox.showinfo("Magic Restore (Lite)", msg)
@@ -424,7 +401,8 @@ class MagicRestorer:
             self.root.after(0, self.finish_restore)
 
         threading.Thread(target=process_inpaint, daemon=True).start()
-        self.track_usage("restore_run")
+        # self.track_usage("restore_run")
+        log_app_usage("magic_restorer", "restore_run")
         return "break" 
 
     def finish_restore(self):
@@ -519,14 +497,14 @@ class MagicRestorer:
         return "break"
 
     def save_image(self, event=None):
-        log_app_usage("magic_restorer", "restorer_save")
+        log_app_usage("magic_restorer", "image_save")
 
         if self.is_processing: return "break"
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Image", "*.png"), ("JPEG Image", "*.jpg")])
         if path:
             cv2.imwrite(path, self.cv_img)
-            self.track_usage("image_saved")
-            log_app_usage("magic_restorer", "restorer_saved")
+            # self.track_usage("image_saved")
+            log_app_usage("magic_restorer", "image_saved")
             messagebox.showinfo("저장", "성공적으로 저장되었습니다!")
 
 if __name__ == "__main__":
