@@ -7,5 +7,12 @@ wheels/
 *.egg-info
 magic_restore_lite.exe
 
+# PyInstaller 빌드 결과물
+*.spec
+
+# 실행 파일 배포용 폴더 (사용자님이 정하신 폴더 이름으로 작성)
+releases/
+
+
 # Virtual environments
 .venv
