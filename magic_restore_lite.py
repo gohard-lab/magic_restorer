@@ -10,7 +10,7 @@ from tracker_exe import log_app_usage
 
 # 🚨 AI 라이브러리(torch, diffusers) 호출 코드를 완전히 삭제했습니다! (용량 다이어트 핵심)
 
-log_app_usage("magic_restore", "restorer_started")
+log_app_usage("magic_restorer", "restorer_started")
 
 class MagicRestorer:
     def __init__(self, root):
@@ -519,14 +519,14 @@ class MagicRestorer:
         return "break"
 
     def save_image(self, event=None):
-        log_app_usage("magic_restore", "restorer_save")
+        log_app_usage("magic_restorer", "restorer_save")
 
         if self.is_processing: return "break"
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Image", "*.png"), ("JPEG Image", "*.jpg")])
         if path:
             cv2.imwrite(path, self.cv_img)
             self.track_usage("image_saved")
-            log_app_usage("magic_restore", "restorer_saved")
+            log_app_usage("magic_restorer", "restorer_saved")
             messagebox.showinfo("저장", "성공적으로 저장되었습니다!")
 
 if __name__ == "__main__":
