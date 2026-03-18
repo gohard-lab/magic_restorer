@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+magic_restore_lite.exe
 
 # Virtual environments
 .venv
