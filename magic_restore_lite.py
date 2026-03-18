@@ -402,7 +402,7 @@ class MagicRestorer:
 
         threading.Thread(target=process_inpaint, daemon=True).start()
         # self.track_usage("restore_run")
-        log_app_usage("magic_restorer", "restore_run")
+        # log_app_usage("magic_restorer", "restore_run")
         return "break" 
 
     def finish_restore(self):
