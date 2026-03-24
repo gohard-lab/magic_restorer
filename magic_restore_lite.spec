@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['magic_restore_lite.py'],
+    ['src\\magic_restore_lite.py'],
     pathex=[],
     binaries=[],
     datas=[],

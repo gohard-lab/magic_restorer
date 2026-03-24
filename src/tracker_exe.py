@@ -1,5 +1,8 @@
 import requests
 import platform
+import json
+import uuid
+import os
 from supabase import create_client
 from datetime import datetime, timezone, timedelta
 
@@ -42,6 +45,28 @@ def get_supabase_client():
 
     return create_client(url, key)
 
+# 1. 💡 PC 고유 ID를 발급/저장/조회하는 함수 추가
+def get_or_create_machine_id():
+    # 내문서/홈 폴더에 숨김 파일로 저장할 경로 지정
+    id_file = os.path.join(os.path.expanduser("~"), ".magic_tracker_id.json")
+    
+    # 이미 쪽지가 있으면 읽어서 반환
+    if os.path.exists(id_file):
+        try:
+            with open(id_file, "r") as f:
+                return json.load(f).get("machine_id")
+        except:
+            pass
+            
+    # 쪽지가 없으면 새로 만들어서 저장
+    new_id = uuid.uuid4().hex
+    try:
+        with open(id_file, "w") as f:
+            json.dump({"machine_id": new_id}, f)
+    except:
+        pass
+    return new_id
+
 def log_app_usage(app_name="unknown_exe_app", action="app_executed", details=None):
     
     # --- [EXE 전용] PC 정보와 진짜 공인 IP 추출 ---
@@ -71,10 +96,14 @@ def log_app_usage(app_name="unknown_exe_app", action="app_executed", details=Non
         if not client:
             return False
             
+        # PC 고유 ID 가져오기
+        machine_id = get_or_create_machine_id()
+
         kst = timezone(timedelta(hours=9))
         korea_time = datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
         
         log_data = {
+            "session_id": machine_id, # EXE 사용자들도 평생 고유 ID가 생김!
             "app_name": app_name,
             "action": action,
             "timestamp": korea_time, 

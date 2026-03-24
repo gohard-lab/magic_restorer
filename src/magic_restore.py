@@ -4,19 +4,16 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import threading 
-import os
-from supabase import create_client, Client
-from tracker_exe import log_app_usage
 
-# 🚨 AI 라이브러리(torch, diffusers) 호출 코드를 완전히 삭제했습니다! (용량 다이어트 핵심)
+# 🚨 AI 라이브러리 강제 호출
+import torch
+from diffusers import StableDiffusionInpaintPipeline
 
 class MagicRestorer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Magic Restore (Lite Ver.)")
-        self.root.geometry("1200x850")
-
-        log_app_usage("magic_restorer", "restorer_started")
+        self.root.title("Magic Restore Pro")
+        self.root.geometry("1200x800")
 
         # ==========================================
         # 1. 초기 설정 변수
@@ -27,6 +24,13 @@ class MagicRestorer:
         self.is_panning = False     
         self.is_processing = False  
         
+        self.ENABLE_SMART_PATCH = False 
+        self.pipe = None 
+        
+        # 딥러닝 모델 백그라운드 로딩 시작
+        if self.ENABLE_SMART_PATCH:
+            threading.Thread(target=self.load_ai_model, daemon=True).start()
+
         self.mouse_x = 0
         self.mouse_y = 0
         self.last_x = None
@@ -68,16 +72,6 @@ class MagicRestorer:
         self.info_label = tk.Label(self.frame, textvariable=self.info_var, bg="#1a1a1a", fg="#00FF00", font=("Malgun Gothic", 11, "bold"), pady=8)
         self.info_label.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.update_info_panel()
-        
-        # 버튼 컨트롤 패널 추가 (저장 기능 명시화)
-        self.control_frame = tk.Frame(self.frame, bg="#333333", pady=10)
-        self.control_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
-        
-        self.load_btn = tk.Button(self.control_frame, text="📂 새 이미지 불러오기", command=self.load_image, bg="#555555", fg="white", font=("Malgun Gothic", 10))
-        self.load_btn.pack(side=tk.LEFT, padx=20)
-        
-        self.save_btn = tk.Button(self.control_frame, text="💾 이미지 저장하기 (S)", command=self.save_image, bg="#4CAF50", fg="white", font=("Malgun Gothic", 10, "bold"))
-        self.save_btn.pack(side=tk.RIGHT, padx=20)
 
         try:
             self.canvas.config(cursor="none")
@@ -103,10 +97,33 @@ class MagicRestorer:
 
         self.load_image()
 
+    # ==========================================
+    # 🌟 AI 모델 로딩 (백그라운드)
+    # ==========================================
+    def load_ai_model(self):
+        try:
+            print("🚀 [시스템] GPU 가속 AI 모델 예열 중... (창은 바로 뜹니다)")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            model_id = "saik0s/realistic_vision_inpainting"
+            
+            self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                use_safetensors=True,
+                safety_checker=None
+            ).to(device)
+            
+            if device == "cuda":
+                self.pipe.enable_attention_slicing()
+            print(f"✅ [준비 완료] NVIDIA GPU({device}) 엔진 장착 완료!")
+        except Exception as e:
+            print(f"❌ AI 모델 로딩 실패: {e}")
+            self.pipe = "ERROR"
+
     def update_title(self):
         if self.cv_img is None: return
         zoom_pct = int(self.zoom_scale * 100)
-        self.root.title(f"Magic Restore (Lite Ver.) - [붓 크기: {self.brush_size}]  [확대: {zoom_pct}%]")
+        self.root.title(f"Magic Restore Pro - [붓 크기: {self.brush_size}]  [확대: {zoom_pct}%]")
 
     def update_info_panel(self):
         text = f" [{self.mode_name}] : {self.mode_desc}   ( M키로 기능 변경 )"
@@ -129,12 +146,14 @@ class MagicRestorer:
         elif char in ['s', 'S', 'ㄴ']:
             self.save_image()
 
+    # ==========================================
+    # 4. 파일 입출력 및 화면 갱신
+    # ==========================================
     def load_image(self):
         if self.is_processing: return
         file_path = filedialog.askopenfilename(title="복원할 사진을 선택하세요")
         if not file_path:
-            if self.cv_img is None:
-                self.root.destroy()
+            self.root.destroy()
             return
         
         stream = open(file_path.encode("utf-8"), "rb")
@@ -150,16 +169,12 @@ class MagicRestorer:
         self.cv_mask = np.zeros(self.cv_img.shape[:2], dtype=np.uint8)
         self.history = [] 
         self.last_x, self.last_y = None, None
-        self.zoom_scale = 1.0 
         
         self.refresh_canvas()
         self.canvas.focus_set() 
         
-
-        log_app_usage("magic_restorer", "image_loaded")
-        
-        msg = "✅ 사진을 불러왔습니다!\n\n[조작법]\nM : 기능 변경 (NS/Telea/도장툴)\nZ, X : 붓 크기 조절\n스페이스바 : 복원 실행\n우클릭 : 도장툴 원본 지정\nShift+클릭 : 직선 긋기\nS : 이미지 저장"
-        messagebox.showinfo("Magic Restore (Lite)", msg)
+        msg = "✅ 사진을 불러왔습니다!\n\n[조작법]\nM : 기능 변경 (NS/Telea/도장툴/Smart Patch)\nZ, X : 붓 크기 조절\n스페이스바 : 복원 실행\n우클릭 : 도장툴 원본 지정\nShift+클릭 : 직선 긋기"
+        messagebox.showinfo("Magic Restore Pro", msg)
 
     def refresh_canvas(self):
         h, w = self.cv_img.shape[:2]
@@ -197,6 +212,9 @@ class MagicRestorer:
         if not self.is_processing:
             self.draw_brush_cursor() 
 
+    # ==========================================
+    # 5. 마우스 조작 및 도장툴(Clone) 로직
+    # ==========================================
     def draw_brush_cursor(self):
         self.canvas.delete("cursor_brush")
         if self.is_panning or self.is_processing: return 
@@ -214,6 +232,8 @@ class MagicRestorer:
         elif self.inpaint_mode == "CLONE":
             self.canvas.create_line(x - 5, y, x + 5, y, fill="white", tags="cursor_brush")
             self.canvas.create_line(x, y - 5, x, y + 5, fill="white", tags="cursor_brush")
+        elif self.inpaint_mode == "SMART":
+            self.canvas.create_text(x, y, text="★", fill="yellow", font=("Arial", max(8, int(r))), tags="cursor_brush")
 
     def on_mouse_move(self, event):
         self.mouse_x = self.canvas.canvasx(event.x)
@@ -378,13 +398,25 @@ class MagicRestorer:
                 self.canvas.config(cursor="crosshair")
             self.draw_brush_cursor()
 
+    # ==========================================
+    # 6. 기능 (복원, 취소, 모드변경)
+    # ==========================================
     def run_restore(self, event=None):
         if self.is_processing: return "break"
         if self.inpaint_mode == "CLONE": return "break" 
         if not np.any(self.cv_mask): return "break"
 
         self.is_processing = True
+        
+        # 🚨 모든 모드에서 공통적으로 작업 중에는 모래시계(로딩 커서)로 변경
         self.canvas.config(cursor="watch")
+        
+        # 🚨 Smart Patch 모드일 때만 큰 로딩 안내창 띄우기
+        if self.inpaint_mode == "SMART":
+            w = int(self.cv_img.shape[1] * self.zoom_scale)
+            h = int(self.cv_img.shape[0] * self.zoom_scale)
+            self.canvas.create_rectangle((w/2)-200, (h/2)-30, (w/2)+200, (h/2)+30, fill="black", stipple="gray50", tags="overlay")
+            self.canvas.create_text(w/2, h/2, text="🚀 GPU 딥러닝 텍스처 생성 중... (잠시 대기)", fill="yellow", font=("Malgun Gothic", 16, "bold"), tags="overlay")
             
         self.root.update() 
         self.push_history() 
@@ -395,20 +427,57 @@ class MagicRestorer:
                 if self.inpaint_mode in [cv2.INPAINT_NS, cv2.INPAINT_TELEA]:
                     restored = cv2.inpaint(self.cv_img, self.cv_mask, radius, self.inpaint_mode)
                     self.cv_img = restored
+                    
+                elif self.inpaint_mode == "SMART" and self.pipe is not None and self.pipe != "ERROR":
+                    original_h, original_w = self.cv_img.shape[:2]
+                    ratio = 512 / max(original_h, original_w)
+                    new_h, new_w = int(original_h * ratio), int(original_w * ratio)
+                    new_h, new_w = new_h - (new_h % 8), new_w - (new_w % 8)
+                    
+                    small_img = cv2.resize(self.cv_img, (new_w, new_h))
+                    small_mask = cv2.resize(self.cv_mask, (new_w, new_h))
+
+                    image_pil = Image.fromarray(cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB))
+                    mask_pil = Image.fromarray(small_mask)
+                    
+                    prompt = "restore missing part, realistic photo, high resolution, detailed texture, seamless blending"
+                    negative_prompt = "cartoon, low quality, blur, distortion, ugly, artificial"
+
+                    result_pil = self.pipe(
+                        prompt=prompt, 
+                        image=image_pil, 
+                        mask_image=mask_pil,
+                        negative_prompt=negative_prompt,
+                        num_inference_steps=25 
+                    ).images[0]
+
+                    result_cv = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
+                    restored_patch = cv2.resize(result_cv, (original_w, original_h), interpolation=cv2.INTER_LANCZOS4)
+                    
+                    np.copyto(self.cv_img, restored_patch, where=(self.cv_mask[:,:,None] > 0))
+                else:
+                    self.cv_img = cv2.inpaint(self.cv_img, self.cv_mask, radius, cv2.INPAINT_NS)
+                    
             except Exception as e:
                 print(f"에러 발생: {e}")
             
-            self.root.after(0, self.finish_restore)
+            # 실행했던 모드를 기억해서 마무리 함수로 넘김
+            self.root.after(0, lambda: self.finish_restore(self.inpaint_mode))
 
         threading.Thread(target=process_inpaint, daemon=True).start()
-        # self.track_usage("restore_run")
-        # log_app_usage("magic_restorer", "restore_run")
         return "break" 
 
-    def finish_restore(self):
+    def finish_restore(self, executed_mode):
         self.cv_mask[:] = 0 
         self.is_processing = False 
         self.refresh_canvas() 
+        
+        # 🚨 Smart Patch 였을 때만 텍스트 피드백 표시! 그 외엔 조용히 모래시계 해제
+        if executed_mode == "SMART":
+            mouse_x = self.root.winfo_pointerx() - self.canvas.winfo_rootx()
+            mouse_y = self.root.winfo_pointery() - self.canvas.winfo_rooty()
+            msg_id = self.canvas.create_text(mouse_x, mouse_y - 40, text="✨ 텍스처 복원 완료!", fill="#00FF00", font=("Arial", 16, "bold"), tags="overlay")
+            self.root.after(1000, lambda: self.canvas.delete(msg_id))
             
         try:
             self.canvas.config(cursor="none")
@@ -446,6 +515,16 @@ class MagicRestorer:
             self.mode_desc = "💡 추천: 패턴 복사. (우클릭으로 복사할 곳 지정 후 좌클릭 칠하기)"
             
         elif self.inpaint_mode == "CLONE":
+            if self.ENABLE_SMART_PATCH:
+                self.inpaint_mode = "SMART"
+                self.mode_name = "Smart Patch (딥러닝 텍스처 재생성)"
+                self.mode_desc = "🌟 VIP 전용: 찢어진 넓은 부위를 AI가 분석하여 완벽하게 새로 그려냅니다!"
+            else:
+                self.inpaint_mode = cv2.INPAINT_NS
+                self.mode_name = "NS 복원 (선/스크래치용)"
+                self.mode_desc = "💡 추천: 길게 긁힌 상처, 구겨진 선. (스페이스바로 실행)"
+                
+        elif self.inpaint_mode == "SMART":
             self.inpaint_mode = cv2.INPAINT_NS
             self.mode_name = "NS 복원 (선/스크래치용)"
             self.mode_desc = "💡 추천: 길게 긁힌 상처, 구겨진 선. (스페이스바로 실행)"
@@ -497,14 +576,10 @@ class MagicRestorer:
         return "break"
 
     def save_image(self, event=None):
-        log_app_usage("magic_restorer", "image_save")
-
         if self.is_processing: return "break"
-        path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Image", "*.png"), ("JPEG Image", "*.jpg")])
+        path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Image", "*.png")])
         if path:
             cv2.imwrite(path, self.cv_img)
-            # self.track_usage("image_saved")
-            log_app_usage("magic_restorer", "image_saved")
             messagebox.showinfo("저장", "성공적으로 저장되었습니다!")
 
 if __name__ == "__main__":
