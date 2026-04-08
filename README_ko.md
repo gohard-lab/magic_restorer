@@ -17,7 +17,7 @@
 
 파이썬 설치나 코딩 지식 없이 바로 프로그램을 사용하고 싶으신 분들은 아래 링크에서 실행 파일을 다운로드해 주세요.
 
-* **[youtube]** [youtube](https://youtu.be/78EH925mXL0))
+* **[youtube]** [youtube](https://youtu.be/78EH925mXL0)
  
 * **[Windows용 .exe 파일 다운로드]** [magic_restore_lite.exe](https://github.com/gohard-lab/magic_restorer/releases/latest)
 
