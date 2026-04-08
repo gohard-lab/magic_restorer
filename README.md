@@ -27,6 +27,8 @@ A lightweight and fast image restoration tool that bypasses heavy deep learning 
 
 If you want to use the program immediately without installing Python or knowing how to code, please download the executable file from the link below.
 
+* **[youtube]** [youtube](https://youtu.be/78EH925mXL0))
+
 * **[Download .exe for Windows]** [magic_restore_lite.exe](https://github.com/gohard-lab/magic_restorer/releases/latest)
 
 *(After downloading, simply double-click `magic_restore_lite.exe` to run it.)*
